@@ -5,7 +5,7 @@ pub mod flow;
 fn main() {
     let data = Data{
         prompted_input: "this is a prompt input".to_string(),
-        llm_task: "choice".to_string(),
+        llm_task: "code".to_string(),
         doc_chunk_data: Some(DocChunkData{
             doc_chunk_id: 0,
             chunk_len : 3,
@@ -14,7 +14,21 @@ fn main() {
         })
     };
     let mut tmp_flow = flow::create_flow();
-    let _ = tmp_flow.run(data);
+    loop {
+        match tmp_flow.run(data.clone()) {
+            Ok(process_result) => {
+                match process_result {
+                    ProcessResult::Incomplete => continue,
+                    ProcessResult::Complete => break,
+                }
+            }
+            Err(e) => {
+                println!("error!{}", e.to_string());
+                break;
+            }
+        }
+    }
+    println!("Flow module exited without error");
 }
 
 
