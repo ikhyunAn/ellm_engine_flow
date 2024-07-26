@@ -4,6 +4,7 @@ pub mod flow;
 
 fn main() {
     let data = Data{
+        prompted_input: "this is a prompt input".to_string(),
         llm_task: "choice".to_string(),
         doc_chunk_data: Some(DocChunkData{
             doc_chunk_id: 0,
@@ -20,7 +21,7 @@ fn main() {
 
 #[derive(Debug, Clone)]
 pub struct Data {
-    // prompted_input: String,
+    prompted_input: String,
     // app_agent_token: Token,
     // task: String,
     llm_task: String,
