@@ -9,8 +9,7 @@ pub mod statemachine;
 enum FlowState {
     // Connect,
     CheckChoice,
-    FactoryTaskType,
-    FactoryStateMachine,
+    Factory,
     InProgress,
     Done,
 }
@@ -55,52 +54,46 @@ impl Flow {
                                 send_to_vllm(data.clone()); //FIXME: fix to batch
                             }
                             self.task_choice_count = 3;
-                            self.state = FlowState::FactoryTaskType;
+                            self.state = FlowState::Factory;
                             return Ok(ProcessResult::Incomplete);
                         }
                         _ => {
-                            self.state = FlowState::FactoryTaskType;
+                            self.state = FlowState::Factory;
                             // continue, do not return
                         }
                     }
                 }
-                FlowState::FactoryTaskType => {
+                FlowState::Factory => {
                     match data.llm_task.as_str() {
                         llm_task => match TaskType::from_str(llm_task) {
                             Ok(task_type) => {
                                 self.task_type = Some(task_type);
-                                self.state = FlowState::FactoryStateMachine;
+                                // self.state = FlowState::FactoryStateMachine;
+                                // DONE: generate SM(s) based on the decided task
+                                if let Some(task_type) = &mut self.task_type {
+                                    self.process_patterns = match task_type {
+                                        TaskType::Code(machines)
+                                        | TaskType::Image(machines)
+                                        | TaskType::Translate(machines)
+                                        | TaskType::Explain(machines)
+                                        | TaskType::ThisChatSummary(machines)
+                                        | TaskType::ThisDocumentSummary(machines)
+                                        | TaskType::SummarizeDoc(machines)
+                                        | TaskType::Insight(machines) => {
+                                            /* NOTE: dyn is not Sized, move sm out of TaskType
+                                                - This operation simply swaps pointers, no cloning of data
+                                             */
+                                            std::mem::take(machines)
+                                        }
+                                    };
+                                    self.state = FlowState::InProgress;
+                                }
                                 // continue, do not return
                             }
                             Err(_) => {
-                                return Err(format!("Invalid task types: {}", llm_task).into());
+                                return Err(format!("Invalid task types or state machine generation not successful: {}", llm_task).into());
                             }
                         },
-                    }
-                }
-                FlowState::FactoryStateMachine => {
-                    // DONE: generate SM(s) based on the decided task
-                    if let Some(task_type) = &mut self.task_type {
-                        self.process_patterns = match task_type {
-                            TaskType::Code(machines)
-                            | TaskType::Image(machines)
-                            | TaskType::Translate(machines)
-                            | TaskType::Explain(machines)
-                            | TaskType::ThisChatSummary(machines)
-                            | TaskType::ThisDocumentSummary(machines)
-                            | TaskType::SummarizeDoc(machines)
-                            | TaskType::Insight(machines) => {
-                                /*
-                                NOTE: dyn is not Sized, move sm out of TaskType
-                                    - This operation simply swaps pointers, no cloning of data
-                                 */
-                                std::mem::take(machines)
-                            }
-                        };
-                        self.state = FlowState::InProgress;
-                    } else {
-                        // if task_type does not exist, return without progressing
-                        return Err(format!("task_type does not exist").into());
                     }
                 }
                 FlowState::InProgress => {
