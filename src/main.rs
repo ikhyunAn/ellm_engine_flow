@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 pub mod flow;
+pub mod debug_print;
 
 fn main() {
     let data = Data{
@@ -28,7 +29,7 @@ fn main() {
             }
         }
     }
-    println!("Flow module exited without error");
+    debug_print::debug_print(DEBUG, "Flow module exited without error");
 }
 
 
@@ -84,3 +85,5 @@ pub enum FlowError {
     #[error("State machine error: {0}")]
     StateMachineError(#[from] Box<dyn std::error::Error>),
 }
+
+pub static DEBUG: i8 = 1;
