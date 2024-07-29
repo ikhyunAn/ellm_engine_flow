@@ -7,3 +7,8 @@ pub fn debug_print(debug: i8, to_print: &str) {
         let _ = stdout().flush();
     } 
 }
+
+pub static DEBUG: i8 = 1;
+
+// NOTE: to use debug_print:
+// use crate::{debug_print, debug_print::DEBUG};

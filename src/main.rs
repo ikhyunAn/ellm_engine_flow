@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::debug_print::DEBUG;
+
 pub mod flow;
 pub mod debug_print;
 
@@ -86,4 +88,4 @@ pub enum FlowError {
     StateMachineError(#[from] Box<dyn std::error::Error>),
 }
 
-pub static DEBUG: i8 = 1;
+// pub static DEBUG: i8 = 1;
