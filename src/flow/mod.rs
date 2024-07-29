@@ -211,8 +211,8 @@ impl FromStr for TaskType {
             "thisdocumentsummary" | "this_document_summary" => {
                 Ok(TaskType::this_document_summary())
             }
-            "summarizedoc" | "summarize_doc" => Ok(TaskType::summarize_doc()),
-            "insight" => Ok(TaskType::insight()),
+            "summarizedoc" | "summarize_doc" | "doc_summary1" => Ok(TaskType::summarize_doc()),
+            "insight" | "insight1" => Ok(TaskType::insight()),
             _ => Err(()),
         }
     }
