@@ -8,7 +8,7 @@ pub mod statemachine;
 
 enum FlowState {
     // Connect,
-    CheckChoice,
+    // CheckChoice,
     Factory,
     InProgress,
     Done,
@@ -17,8 +17,8 @@ enum FlowState {
 pub struct Flow {
     state: FlowState,
     // llm_response: Option<Data>,
-    task_choice_count: u32,
-    task_type: Option<TaskType>,
+    // task_choice_count: u32,
+    task_type: Option<ProcessPatternType>,
     process_patterns: Vec<Box<dyn StateMachine>>,
     current_pattern: Option<Box<dyn StateMachine>>,
 }
@@ -26,9 +26,9 @@ pub struct Flow {
 impl Flow {
     fn new() -> Self {
         Flow {
-            state: FlowState::CheckChoice,
+            state: FlowState::Factory,
             // llm_response: None,
-            task_choice_count: 0, // always check three times
+            // task_choice_count: 0, // always check three times
             task_type: None,
             process_patterns: Vec::new(),
             current_pattern: None,
@@ -41,45 +41,39 @@ impl Flow {
         loop {
             match self.state {
                 // NOTE: connection will be made before calling `run`
-                FlowState::CheckChoice => {
-                    // DONE: task choice and create state machines
-                    // [x] modify data for task_choice
-                    // [x] task choice x 3
-                    // [x] decide on task
-                    // [x] "chat", "doc_summary", "insight" => check in data.llm_task
-                    match data.llm_task.as_str() {
-                        "choice" => {
-                            // [x] LLM allows batch? -> send vector, don't loop three times
-                            for _ in 0..3 {
-                                send_to_vllm(data.clone()); //FIXME: fix to batch
-                            }
-                            self.task_choice_count = 3;
-                            self.state = FlowState::Factory;
-                            return Ok(ProcessResult::Incomplete);
-                        }
-                        _ => {
-                            self.state = FlowState::Factory;
-                            // continue, do not return
-                        }
-                    }
-                }
+                // FlowState::CheckChoice => {
+                //     // DONE: task choice and create state machines
+                //     // [x] modify data for task_choice
+                //     // [x] task choice x 3
+                //     // [x] decide on task
+                //     // [x] "chat", "doc_summary", "insight" => check in data.llm_task
+                //     match data.llm_task.as_str() {
+                //         "choice" => {
+                //             // [x] LLM allows batch? -> send vector, don't loop three times
+                //             for _ in 0..3 {
+                //                 send_to_vllm(data.clone()); //FIXME: fix to batch
+                //             }
+                //             self.task_choice_count = 3;
+                //             self.state = FlowState::Factory;
+                //             return Ok(ProcessResult::Incomplete);
+                //         }
+                //         _ => {
+                //             self.state = FlowState::Factory;
+                //             // continue, do not return
+                //         }
+                //     }
+                // }
                 FlowState::Factory => {
                     match data.llm_task.as_str() {
-                        llm_task => match TaskType::from_str(llm_task) {
+                        llm_task => match ProcessPatternType::from_str(llm_task) {
                             Ok(task_type) => {
                                 self.task_type = Some(task_type);
                                 // self.state = FlowState::FactoryStateMachine;
                                 // DONE: generate SM(s) based on the decided task
                                 if let Some(task_type) = &mut self.task_type {
                                     self.process_patterns = match task_type {
-                                        TaskType::Code(machines)
-                                        | TaskType::Image(machines)
-                                        | TaskType::Translate(machines)
-                                        | TaskType::Explain(machines)
-                                        | TaskType::ThisChatSummary(machines)
-                                        | TaskType::ThisDocumentSummary(machines)
-                                        | TaskType::SummarizeDoc(machines)
-                                        | TaskType::Insight(machines) => {
+                                        ProcessPatternType::BasicPrompt(machines)
+                                        | ProcessPatternType::MapReduce(machines) =>
                                             /* NOTE: dyn is not Sized, move sm out of TaskType
                                                 - This operation simply swaps pointers, no cloning of data
                                              */
@@ -87,7 +81,7 @@ impl Flow {
                                         }
                                     };
                                     self.state = FlowState::InProgress;
-                                }
+                                
                                 // continue, do not return
                             }
                             Err(_) => {
@@ -143,77 +137,108 @@ pub fn create_flow() -> Flow {
     Flow::new()
 }
 
-enum TaskType {
-    // NOTE: Each vector represent multihop pattern
-    Code(Vec<Box<dyn StateMachine>>),
-    Image(Vec<Box<dyn StateMachine>>),
-    Translate(Vec<Box<dyn StateMachine>>),
-    Explain(Vec<Box<dyn StateMachine>>),
-    ThisChatSummary(Vec<Box<dyn StateMachine>>),
-    ThisDocumentSummary(Vec<Box<dyn StateMachine>>),
-    SummarizeDoc(Vec<Box<dyn StateMachine>>),
-    Insight(Vec<Box<dyn StateMachine>>),
+enum ProcessPatternType {
+    BasicPrompt(Vec<Box<dyn StateMachine>>),
+    MapReduce(Vec<Box<dyn StateMachine>>),
+    /* [ ] More Process Patterns */
 }
 
-// TODO: Check actual multihop pattern for each task
-impl TaskType {
-    fn code() -> Self {
-        TaskType::Code(vec![Box::new(
-            statemachine::basicprompt::BasicPromptStateMachine::new(),
-        )])
+impl ProcessPatternType {
+    // NOTE: Use Vector since it's not known if all Process Patterns will be single SM.
+    fn basicprompt() -> Self {
+        ProcessPatternType::BasicPrompt(vec![Box::new(statemachine::basicprompt::BasicPromptStateMachine::new())])
     }
-
-    fn image() -> Self {
-        TaskType::Image(vec![])
+    fn mapreduce() -> Self {
+        ProcessPatternType::MapReduce(vec![Box::new(statemachine::mapreduce::MapReduceStateMachine::new())])
     }
-
-    fn translate() -> Self {
-        TaskType::Translate(vec![])
-    }
-
-    fn explain() -> Self {
-        TaskType::Explain(vec![])
-    }
-
-    fn this_chat_summary() -> Self {
-        TaskType::ThisChatSummary(vec![])
-    }
-
-    fn this_document_summary() -> Self {
-        TaskType::ThisDocumentSummary(vec![])
-    }
-
-    fn summarize_doc() -> Self {
-        TaskType::SummarizeDoc(vec![Box::new(
-            statemachine::mapreduce::MapReduceStateMachine::new(),
-        )])
-    }
-
-    fn insight() -> Self {
-        TaskType::Insight(vec![Box::new(
-            statemachine::mapreduce::MapReduceStateMachine::new(),
-        )])
-    }
+    /* [ ] More Process Pattern initializers */
 }
 
-// vec![ProcessPattern::BasicPrompt, ProcessPattern::MapReduce]
-
-impl FromStr for TaskType {
+impl FromStr for ProcessPatternType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "code" => Ok(TaskType::code()),
-            "image" => Ok(TaskType::image()),
-            "translate" => Ok(TaskType::translate()),
-            "explain" => Ok(TaskType::explain()),
-            "thischatsummary" | "this_chat_summary" => Ok(TaskType::this_chat_summary()),
-            "thisdocumentsummary" | "this_document_summary" => {
-                Ok(TaskType::this_document_summary())
-            }
-            "summarizedoc" | "summarize_doc" | "doc_summary1" => Ok(TaskType::summarize_doc()),
-            "insight" | "insight1" => Ok(TaskType::insight()),
+            "basicprompt" | "basic_prompt" => Ok(ProcessPatternType::basicprompt()),
+            "mapreduce" | "map_reduce" => Ok(ProcessPatternType::mapreduce()),
+            /* [ ] More initializers */
             _ => Err(()),
         }
     }
 }
+
+
+// enum TaskType {
+//     // NOTE: Each vector represent multihop pattern
+//     Code(Vec<Box<dyn StateMachine>>),
+//     Image(Vec<Box<dyn StateMachine>>),
+//     Translate(Vec<Box<dyn StateMachine>>),
+//     Explain(Vec<Box<dyn StateMachine>>),
+//     ThisChatSummary(Vec<Box<dyn StateMachine>>),
+//     ThisDocumentSummary(Vec<Box<dyn StateMachine>>),
+//     SummarizeDoc(Vec<Box<dyn StateMachine>>),
+//     Insight(Vec<Box<dyn StateMachine>>),
+// }
+
+// // Check actual multihop pattern for each task
+// impl TaskType {
+//     fn code() -> Self {
+//         TaskType::Code(vec![Box::new(
+//             statemachine::basicprompt::BasicPromptStateMachine::new(),
+//         )])
+//     }
+
+//     fn image() -> Self {
+//         TaskType::Image(vec![])
+//     }
+
+//     fn translate() -> Self {
+//         TaskType::Translate(vec![])
+//     }
+
+//     fn explain() -> Self {
+//         TaskType::Explain(vec![])
+//     }
+
+//     fn this_chat_summary() -> Self {
+//         TaskType::ThisChatSummary(vec![])
+//     }
+
+//     fn this_document_summary() -> Self {
+//         TaskType::ThisDocumentSummary(vec![])
+//     }
+
+//     fn summarize_doc() -> Self {
+//         TaskType::SummarizeDoc(vec![Box::new(
+//             statemachine::mapreduce::MapReduceStateMachine::new(),
+//         )])
+//     }
+
+//     fn insight() -> Self {
+//         TaskType::Insight(vec![Box::new(
+//             statemachine::mapreduce::MapReduceStateMachine::new(),
+//         )])
+//     }
+// }
+
+// // vec![ProcessPattern::BasicPrompt, ProcessPattern::MapReduce]
+
+// impl FromStr for TaskType {
+//     type Err = ();
+
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         match s.to_lowercase().as_str() {
+//             "code" => Ok(TaskType::code()),
+//             "image" => Ok(TaskType::image()),
+//             "translate" => Ok(TaskType::translate()),
+//             "explain" => Ok(TaskType::explain()),
+//             "thischatsummary" | "this_chat_summary" => Ok(TaskType::this_chat_summary()),
+//             "thisdocumentsummary" | "this_document_summary" => {
+//                 Ok(TaskType::this_document_summary())
+//             }
+//             "summarizedoc" | "summarize_doc" | "doc_summary1" => Ok(TaskType::summarize_doc()),
+//             "insight" | "insight1" => Ok(TaskType::insight()),
+//             _ => Err(()),
+//         }
+//     }
+// }
