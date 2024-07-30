@@ -26,18 +26,19 @@ impl NewStateMachine for MapReduceStateMachine {
 
 impl StateMachine for MapReduceStateMachine {
     fn drive(&mut self, mut data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
-        // TODO: drive using states
+        // DONE: drive using states
         // NOTE: Removed infinite loop because it's unnecessary
         match self.state {
             State::Map => {
+                // TODO: iterate through all chunks and send llm request
                 send_to_vllm(data);
                 self.state = State::Reduce;
                 Ok(ProcessResult::Incomplete)
             }
             State::Reduce => {
-                /* TODO: store llm responses for 'N' chunks in Vec,
-                    [ ] proceed only if all responses are collected - use DocChunkData.chunk_len & chunk_index.
-                    [ ] collect all into one llm_response
+                /* DONE: store llm responses for 'N' chunks in Vec,
+                    [x] proceed only if all responses are collected - use DocChunkData.chunk_len & chunk_index.
+                    [x] collect all into one llm_response
                         1. use size to create Vec: if the Vec is non-existent
                         2. use index to insert into Vec
                         3. Collect all when finished
@@ -60,7 +61,7 @@ impl StateMachine for MapReduceStateMachine {
                                 // Check if all items have been inserted
                                 if map_result.iter().all(|item| *item != String::default()) {
                                     // all inserted
-                                    // TODO: reduce and send request
+                                    // DONE: reduce and send request
                                     let reduced_result = map_result.join("\n");
                                     // [x] reuse Data which will be sent to the llm for the final, reduced query
                                     data.prompted_input = reduced_result;

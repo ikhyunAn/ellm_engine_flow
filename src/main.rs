@@ -21,11 +21,12 @@ fn main() {
         match tmp_flow.run(data.clone()) {
             Ok(process_result) => {
                 match process_result {
-                    ProcessResult::Incomplete => continue,
-                    ProcessResult::Complete => break,
+                    ProcessResult::Incomplete => continue, // keep FlowManager
+                    ProcessResult::Complete => break, // handle complete Flow: make null
                 }
             }
             Err(e) => {
+                // handle error
                 println!("error!{}", e.to_string());
                 break;
             }
