@@ -29,7 +29,7 @@ impl NewStateMachine for BasicPromptStateMachine {
 }
 
 impl StateMachine for BasicPromptStateMachine {
-    fn drive(&mut self, data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
+    fn step(&mut self, data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
         // DONE: send 1 request
         send_to_vllm(data);
         Ok(ProcessResult::Complete)

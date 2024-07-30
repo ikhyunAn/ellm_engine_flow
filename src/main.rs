@@ -1,11 +1,15 @@
 use thiserror::Error;
 
 use crate::debug_print::DEBUG;
+use crate::statemachine::{ProcessPattern, ProcessPatternType};
 
-pub mod flow;
+pub mod statemachine;
 pub mod debug_print;
 
 fn main() {
+    let _process_pattern1 = ProcessPattern::new(ProcessPatternType::BasicPrompt);
+    let process_pattern2 = ProcessPattern::new(ProcessPatternType::MapReduce);
+
     let data = Data{
         prompted_input: "this is a prompt input".to_string(),
         llm_task: "code".to_string(),
@@ -16,9 +20,11 @@ fn main() {
             chunk_text: Some("first chunk".to_string()),
         })
     };
-    let mut tmp_flow = flow::create_flow();
+
+    let mut sm_2 = process_pattern2.state_machine;
+    
     loop {
-        match tmp_flow.run(data.clone()) {
+        match sm_2.step(data.clone()) {
             Ok(process_result) => {
                 match process_result {
                     ProcessResult::Incomplete => continue, // keep FlowManager
@@ -32,7 +38,8 @@ fn main() {
             }
         }
     }
-    debug_print::debug_print(DEBUG, "Flow module exited without error");
+
+    debug_print::debug_print(DEBUG, "state machine exited without error");
 }
 
 

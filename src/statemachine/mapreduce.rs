@@ -1,5 +1,7 @@
 use crate::{send_to_vllm, Data};
-use super::{NewStateMachine, ProcessResult, StateMachine};
+use super::ProcessResult;
+
+use super::{NewStateMachine, StateMachine};
 
 #[derive(Clone)]
 enum State {
@@ -25,7 +27,7 @@ impl NewStateMachine for MapReduceStateMachine {
 }
 
 impl StateMachine for MapReduceStateMachine {
-    fn drive(&mut self, mut data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
+    fn step(&mut self, mut data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
         // DONE: drive using states
         // NOTE: Removed infinite loop because it's unnecessary
         match self.state {
