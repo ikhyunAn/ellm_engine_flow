@@ -1,9 +1,9 @@
 use thiserror::Error;
 
 use crate::debug_print::DEBUG;
-use crate::statemachine::{ProcessPattern, ProcessPatternType};
+use crate::flow::{ProcessPattern, ProcessPatternType};
 
-pub mod statemachine;
+pub mod flow;
 pub mod debug_print;
 
 fn main() {
@@ -12,7 +12,7 @@ fn main() {
 
     let data = Data{
         prompted_input: "this is a prompt input".to_string(),
-        llm_task: "code".to_string(),
+        // llm_task: "code".to_string(),
         doc_chunk_data: Some(DocChunkData{
             doc_chunk_id: 0,
             chunk_len : 3,
@@ -49,7 +49,7 @@ pub struct Data {
     prompted_input: String,
     // app_agent_token: Token,
     // task: String,
-    llm_task: String,
+    // llm_task: String,
     // is_done: bool,
     // actor: String,
     // request_json_data: RequestJsonData,

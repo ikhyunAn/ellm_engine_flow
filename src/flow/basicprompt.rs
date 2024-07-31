@@ -1,19 +1,19 @@
-use crate::{send_to_vllm, Data};
+use crate::{respond_to_client, send_to_vllm, Data};
 use super::{NewStateMachine, ProcessResult, StateMachine};
 
 
 /*
 NOTE: state machine may not be necessary for BasicPrompt */
 
-// #[derive(Clone)]
-// enum State {
-//     Start,
-//     Done,
-// }
+#[derive(Clone)]
+enum State {
+    Start,
+    Done,
+}
 
 #[derive(Clone)]
 pub struct BasicPromptStateMachine {
-    // state: State,
+    state: State,
     _data: Option<Data>,
     // intermediate_results
     // output for client
@@ -22,7 +22,7 @@ pub struct BasicPromptStateMachine {
 impl NewStateMachine for BasicPromptStateMachine {
     fn new() -> Self {
         BasicPromptStateMachine {
-            // state: State::Start,
+            state: State::Start,
             _data: None,
         }
     }
@@ -31,8 +31,17 @@ impl NewStateMachine for BasicPromptStateMachine {
 impl StateMachine for BasicPromptStateMachine {
     fn step(&mut self, data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
         // DONE: send 1 request
-        send_to_vllm(data);
-        Ok(ProcessResult::Complete)
+        match self.state {
+            State::Start => {
+                send_to_vllm(data);
+                self.state = State::Done;
+                Ok(ProcessResult::Incomplete)
+            }
+            State::Done => {
+                respond_to_client(data);
+                Ok(ProcessResult::Complete)
+            }
+        }
     }
 }
 

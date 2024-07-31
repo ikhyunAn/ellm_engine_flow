@@ -1,4 +1,4 @@
-use crate::{send_to_vllm, Data};
+use crate::{send_to_vllm, respond_to_client, Data};
 use super::ProcessResult;
 
 use super::{NewStateMachine, StateMachine};
@@ -7,6 +7,7 @@ use super::{NewStateMachine, StateMachine};
 enum State {
     Map,
     Reduce,
+    Done,
 }
 
 #[derive(Clone)]
@@ -68,7 +69,8 @@ impl StateMachine for MapReduceStateMachine {
                                     // [x] reuse Data which will be sent to the llm for the final, reduced query
                                     data.prompted_input = reduced_result;
                                     send_to_vllm(data);
-                                    return Ok(ProcessResult::Complete);
+                                    self.state = State::Done;
+                                    return Ok(ProcessResult::Incomplete);
                                 } else {
                                     // return and wait for more items to come
                                     return Ok(ProcessResult::Incomplete);
@@ -77,6 +79,10 @@ impl StateMachine for MapReduceStateMachine {
                         }
                     }
                 }
+            } 
+            State::Done => {
+                respond_to_client(data);
+                return Ok(ProcessResult::Complete);
             }
         }
     }
