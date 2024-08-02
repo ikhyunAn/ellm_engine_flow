@@ -1,4 +1,4 @@
-use crate::{respond_to_client, send_to_vllm, Data};
+use crate::{send_to_vllm, Data};
 use super::{NewStateMachine, ProcessResult, StateMachine};
 
 
@@ -33,12 +33,14 @@ impl StateMachine for BasicPromptStateMachine {
         // DONE: send 1 request
         match self.state {
             State::Start => {
+                // TODO: prompting
                 send_to_vllm(data);
                 self.state = State::Done;
-                Ok(ProcessResult::Incomplete)
+                Ok(ProcessResult::Complete)
             }
+            // FIXME: not necessary
             State::Done => {
-                respond_to_client(data);
+                // respond_to_client(data);
                 Ok(ProcessResult::Complete)
             }
         }
