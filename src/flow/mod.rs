@@ -2,8 +2,9 @@ use crate::Data;
 
 pub mod basicprompt;
 pub mod mapreduce;
-pub mod multireduce;
-pub mod refine;
+// pub mod multireduce;
+// pub mod refine;
+pub mod prompt_template;
 // TODO: add more statemachines
 
 pub trait NewStateMachine {
@@ -23,16 +24,15 @@ pub enum ProcessPatternType {
 pub struct ProcessPattern {
     pattern_type: ProcessPatternType,
     pub state_machine: Box<dyn StateMachine>,
-    prompt_template: Vec<String>,
 }
 
 impl ProcessPattern {
-    pub fn new(pattern_type: ProcessPatternType, prompt_template: Vec<String>) -> Self {
+    pub fn new(pattern_type: ProcessPatternType) -> Self {
         let state_machine: Box<dyn StateMachine> = match pattern_type {
             ProcessPatternType::BasicPrompt => Box::new(basicprompt::BasicPromptStateMachine::new()),
             ProcessPatternType::MapReduce => Box::new(mapreduce::MapReduceStateMachine::new()),
         };
-        ProcessPattern { pattern_type, state_machine, prompt_template } // returns Process struct
+        ProcessPattern { pattern_type, state_machine } // returns Process struct
     }
 }
 
