@@ -1,7 +1,10 @@
-use crate::{send_to_vllm, Data, PromptExchange};
 use super::ProcessResult;
+use crate::{send_to_vllm, Data, PromptExchange};
 
 use super::{NewStateMachine, StateMachine};
+
+use super::prompt_template::{self, PromptTemplate, MapTemplate, MapParams, ReduceTemplate, ReduceParams};
+
 
 #[derive(Clone)]
 enum State {
@@ -53,14 +56,30 @@ impl StateMachine for MapReduceStateMachine {
                     if let Some(chunks) = &fasoo.chunks {
                         for chunk in chunks.iter() {
                             let mut data_to_send = data.clone();
+
+                            /* [x]: parse params into Map Template */
+                            let map_template: MapTemplate = prompt_template::MapTemplate;
+                            let map_params: MapParams = prompt_template::MapParams {
+                                map_instruction: self.map_instruction.clone().unwrap(),
+                                chunk: chunk.chunk_text.clone(),
+                            };
+
                             data_to_send.prompt_exchange = Some(PromptExchange {
-                                index: self.chunk_num,  // this increments for every chunk
+                                index: self.chunk_num, // this increments for every chunk
                                 // FIXME: use prompt template to construct a String, not vec<String>. fill in the blanks, etc.
-                                prompted_string: vec![self.map_instruction.clone().unwrap(), chunk.chunk_text.clone()],
+                                /*
+                                NOTE: prompt template will come in as paramter in step()
+
+                                 */
+                                // prompted_string: vec![
+                                //     self.map_instruction.clone().unwrap(),
+                                //     chunk.chunk_text.clone(),
+                                // ],
+                                prompted_string: map_template.fill(&map_params),
                                 llm_response: None,
                             });
                             send_to_vllm(data_to_send);
-                            self.chunk_num += 1;    // increment
+                            self.chunk_num += 1; // increment
                         }
                     }
                 }
@@ -103,11 +122,17 @@ impl StateMachine for MapReduceStateMachine {
                                         - <task_instruction>
                                         - <input>
                                         */
-                                        prompt_exchange.prompted_string = vec![
-                                            self.reduce_instruction.clone().unwrap(), 
-                                            reduced_result,
-                                            data.prompt_keys.task_instruction.clone().unwrap(),
-                                            data.prompt_keys.user_query.clone().unwrap()];
+
+                                        /* [x]: parse params into Reduce Template */
+                                        let reduce_template: ReduceTemplate = prompt_template::ReduceTemplate;
+                                        let reduce_params = ReduceParams {
+                                            reduce_instruction: self.reduce_instruction.clone().unwrap(),
+                                            map_result: reduced_result,
+                                            task_instruction: data.prompt_keys.task_instruction.clone().unwrap(),
+                                            user_query: data.prompt_keys.user_query.clone().unwrap(),
+                                        };
+                                        prompt_exchange.prompted_string = reduce_template.fill(&reduce_params);
+
                                         send_to_vllm(data);
                                         self.state = State::Done;
                                         return Ok(ProcessResult::Complete); // NOTE: returning Complete tells IO the next response is for client.
@@ -119,12 +144,11 @@ impl StateMachine for MapReduceStateMachine {
                                     // [ ] handle llm_response None case
                                     // return Err()
                                 }
-
                             }
                         }
                     }
                 }
-            } 
+            }
             State::Done => {
                 // respond_to_client(data);
                 return Ok(ProcessResult::Complete);
@@ -132,4 +156,3 @@ impl StateMachine for MapReduceStateMachine {
         }
     }
 }
-
