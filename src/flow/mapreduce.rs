@@ -16,7 +16,6 @@ enum State {
 #[derive(Clone)]
 pub struct MapReduceStateMachine {
     state: State,
-    _data: Option<Data>,
     map_result: Option<Vec<String>>,
     chunk_num: usize,
     map_instruction: Option<String>,
@@ -27,7 +26,6 @@ impl NewStateMachine for MapReduceStateMachine {
     fn new() -> Self {
         MapReduceStateMachine {
             state: State::Map,
-            _data: None,
             map_result: None,
             chunk_num: 0,
             map_instruction: None,
@@ -110,9 +108,11 @@ impl StateMachine for MapReduceStateMachine {
                             if let Some(prompt_exchange) = &mut data.prompt_exchange {
                                 if let Some(llm_response) = &prompt_exchange.llm_response {
                                     map_result.insert(prompt_exchange.index, llm_response.clone());
-                                    // break loop
-                                    // Check if all items have been inserted
-                                    if map_result.iter().all(|item| *item != String::default()) {
+                                    // [x] decrement for each map result received
+                                    self.chunk_num -= 1;
+                                    // [x] Check if all items have been inserted, using self.chunk_num
+                                    // if map_result.iter().all(|item| *item != String::default()) {
+                                    if self.chunk_num == 0 {
                                         // DONE: reduce and send request
                                         let reduced_result = map_result.join("\n");
                                         /*
