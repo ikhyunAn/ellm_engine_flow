@@ -1,4 +1,4 @@
-use crate::{send_to_vllm, Data};
+use crate::{send_to_vllm, Data, PromptExchange};
 use super::ProcessResult;
 
 use super::{NewStateMachine, StateMachine};
@@ -39,18 +39,31 @@ impl StateMachine for MapReduceStateMachine {
         // NOTE: Removed infinite loop because it's unnecessary
         match self.state {
             State::Map => {
-                // TODO: parse map and reduce instructions
-
                 // DONE: iterate through all chunks and send llm request
-                for chunk in data.chunks.iter() {
-                    /* FIXME: 
-                        1. use parsed instructions- map_inst and reduce_inst
-                        2.  */
-                    data.prompt_exchange.prompted_string = Some(vec![data.instructions[0].clone(), chunk.chunk_text.clone()]);
-                    send_to_vllm(data.clone());
-                    self.chunk_num += 1;
+                // [x] parse instructions
+                if let Some(fasoo) = &data.prompt_keys.fasoo {
+                    // [x] fetch instructions
+                    if let Some(pattern) = &fasoo.pattern {
+                        if let Some(map_reduce) = &pattern.map_reduce {
+                            self.map_instruction = Some(map_reduce.map_instruction.clone());
+                            self.reduce_instruction = Some(map_reduce.reduce_instruction.clone());
+                        }
+                    }
+                    // [x] iterate through each chunk and send request
+                    if let Some(chunks) = &fasoo.chunks {
+                        for chunk in chunks.iter() {
+                            let mut data_to_send = data.clone();
+                            data_to_send.prompt_exchange = Some(PromptExchange {
+                                index: self.chunk_num,  // this increments for every chunk
+                                // FIXME: use prompt template to construct a String, not vec<String>. fill in the blanks, etc.
+                                prompted_string: vec![self.map_instruction.clone().unwrap(), chunk.chunk_text.clone()],
+                                llm_response: None,
+                            });
+                            send_to_vllm(data_to_send);
+                            self.chunk_num += 1;    // increment
+                        }
+                    }
                 }
-                // send_to_vllm(data);
                 self.state = State::Reduce;
                 Ok(ProcessResult::Incomplete)
             }
@@ -75,32 +88,38 @@ impl StateMachine for MapReduceStateMachine {
                         }
                         Some(map_result) => {
                             // 2. insert into Vec using index
-                            if let Some(llm_response) = data.prompt_exchange.llm_response.clone() {
-                                map_result.insert(data.prompt_exchange.index, llm_response);
-                                // break loop
-                                // Check if all items have been inserted
-                                if map_result.iter().all(|item| *item != String::default()) {
-                                    // DONE: reduce and send request
-                                    let reduced_result = map_result.join("\n");
-                                    /*
-                                    NOTE: prompt for reduce operation
-                                    - <reduce_instruction>
-                                    - <intermediate_answers>
-                                    - <task_instruction>
-                                    - <input>
-                                    */
-                                    data.prompt_exchange.prompted_string = Some(vec![
-                                        data.instructions[1].clone(), 
-                                        reduced_result,
-                                        data.task_instruction.clone(),
-                                        data.input.clone()]);
-                                    send_to_vllm(data);
-                                    self.state = State::Done;
-                                    return Ok(ProcessResult::Complete); // NOTE: returning Complete tells IO the next response is for client.
+                            if let Some(prompt_exchange) = &mut data.prompt_exchange {
+                                if let Some(llm_response) = &prompt_exchange.llm_response {
+                                    map_result.insert(prompt_exchange.index, llm_response.clone());
+                                    // break loop
+                                    // Check if all items have been inserted
+                                    if map_result.iter().all(|item| *item != String::default()) {
+                                        // DONE: reduce and send request
+                                        let reduced_result = map_result.join("\n");
+                                        /*
+                                        NOTE: prompt for reduce operation
+                                        - <reduce_instruction>
+                                        - <intermediate_answers>
+                                        - <task_instruction>
+                                        - <input>
+                                        */
+                                        prompt_exchange.prompted_string = vec![
+                                            self.reduce_instruction.clone().unwrap(), 
+                                            reduced_result,
+                                            data.prompt_keys.task_instruction.clone().unwrap(),
+                                            data.prompt_keys.user_query.clone().unwrap()];
+                                        send_to_vllm(data);
+                                        self.state = State::Done;
+                                        return Ok(ProcessResult::Complete); // NOTE: returning Complete tells IO the next response is for client.
+                                    } else {
+                                        // return and wait for more map responses to come
+                                        return Ok(ProcessResult::Incomplete);
+                                    }
                                 } else {
-                                    // return and wait for more map responses to come
-                                    return Ok(ProcessResult::Incomplete);
+                                    // [ ] handle llm_response None case
+                                    // return Err()
                                 }
+
                             }
                         }
                     }

@@ -83,6 +83,7 @@ fn main() {
                 ]),
             }),
         },
+        prompt_exchange: None,
     };
     
     // Data{
@@ -131,6 +132,7 @@ fn main() {
 pub struct Data {
     app_agent_token: String,
     prompt_keys: PromptKeys,
+    pub prompt_exchange: Option<PromptExchange>,
 }
 
 #[derive(Debug, Clone)]
@@ -213,9 +215,9 @@ pub enum FlowError {
 
 // pub static DEBUG: i8 = 1;
 
-#[derive(Debug, Clone)]
-struct PromptExchange {
-    index: usize,
-    prompted_string: Option<Vec<String>>,
-    llm_response: Option<String>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptExchange {
+    pub index: usize,
+    pub prompted_string: Vec<String>,
+    pub llm_response: Option<String>,
 }
