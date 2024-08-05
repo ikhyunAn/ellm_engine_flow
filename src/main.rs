@@ -218,6 +218,6 @@ pub enum FlowError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptExchange {
     pub index: usize,
-    pub prompted_string: Vec<String>,
+    pub prompted_string: String,
     pub llm_response: Option<String>,
 }
