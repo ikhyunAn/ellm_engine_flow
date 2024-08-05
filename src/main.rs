@@ -10,17 +10,8 @@ pub mod flow;
 pub mod debug_print;
 
 fn main() {
-    let mapreduce_template = vec!("
-<map_instruction>
-<chunk>
-".to_string(), "
-<reduce_instruction>
-<map_result>
-<task_instruction>
-<user_query>
-".to_string());
 
-    let process_pattern = ProcessPattern::new(ProcessPatternType::MapReduce, mapreduce_template);
+    let process_pattern = ProcessPattern::new(ProcessPatternType::MapReduce);
     // let process_pattern2 = ProcessPattern::new(ProcessPatternType::MapReduce);
 
     let data = Data {
@@ -86,25 +77,7 @@ fn main() {
         prompt_exchange: None,
     };
     
-    // Data{
-    //     prompted_input: "this is a prompt input".to_string(),
-    //     // llm_task: "code".to_string(),
-    //     instructions: vec![String::from("map instruction"), String::from("reduce instruction")],
-    //     chunks: vec![DocChunkData {
-    //         doc_id: 0,
-    //         chunk_idx: 0,
-    //         chunk_text: String::from("this is a text"),
-    //     }
-    // ],
-    //     prompt_exchange: PromptExchange {
-    //         index: 0,
-    //         prompted_string: None,
-    //         llm_response: None,
-    //     },
-    //     task_instruction: String::from("task_instruction"),
-    //     input: String::from("input"),
-    // };
-
+    
     let mut sm = process_pattern.state_machine;
     
     match sm.step(data.clone()) {
@@ -120,8 +93,6 @@ fn main() {
             // break;
         }
     }
-    // loop {
-    // }
 
     debug_print::debug_print(DEBUG, "state machine exited without error");
 }
@@ -193,8 +164,10 @@ struct MapReduce {
     reduce_instruction: String,
 }
 
-pub fn send_to_vllm(_data: Data) {
-
+pub fn send_to_vllm(data: Data) {
+    let prompted_string = data.clone().prompt_exchange.unwrap().prompted_string;
+    println!("send_to_vllm reqeust: ");
+    println!("{prompted_string}");
 }
 
 // #[derive(Clone)]
