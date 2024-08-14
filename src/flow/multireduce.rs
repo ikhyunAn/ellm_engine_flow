@@ -40,6 +40,10 @@ impl StateMachine for MultiReduceStateMachine {
         match self.state {
             State::Map => {
                 // DONE: request per instruction, not per background(chunk). - difference between mapreduce and multireduce
+                // FIXME: Data spec updated
+                
+                
+                
                 self.instruction_size = data.instructions.len();
                 for i in 0..(self.instruction_size - 1) {
                     // FIXME: prompting

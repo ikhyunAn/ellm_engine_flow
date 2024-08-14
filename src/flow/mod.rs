@@ -1,4 +1,4 @@
-use crate::Data;
+use crate::server::{Data, PromptExchange, VLLMConnWithState, VLLMTokenWithData};
 
 pub mod basicprompt;
 pub mod mapreduce;
@@ -12,7 +12,12 @@ pub trait NewStateMachine {
 }
 
 pub trait StateMachine {
-    fn step(&mut self, data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>>;
+    fn step(
+        &mut self,
+        data: Data,
+        vllm_connection_pool: &mut Vec<Option<VLLMConnWithState>>,
+        vllm_token_with_data_vec: &mut Vec<Option<VLLMTokenWithData>>,
+    ) -> Result<ProcessResult, Box<dyn std::error::Error>>;
 }
 
 pub enum ProcessPatternType {
@@ -29,10 +34,15 @@ pub struct ProcessPattern {
 impl ProcessPattern {
     pub fn new(pattern_type: ProcessPatternType) -> Self {
         let state_machine: Box<dyn StateMachine> = match pattern_type {
-            ProcessPatternType::BasicPrompt => Box::new(basicprompt::BasicPromptStateMachine::new()),
+            ProcessPatternType::BasicPrompt => {
+                Box::new(basicprompt::BasicPromptStateMachine::new())
+            }
             ProcessPatternType::MapReduce => Box::new(mapreduce::MapReduceStateMachine::new()),
         };
-        ProcessPattern { pattern_type, state_machine } // returns Process struct
+        ProcessPattern {
+            pattern_type,
+            state_machine,
+        } // returns Process struct
     }
 }
 

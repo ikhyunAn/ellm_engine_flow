@@ -1,10 +1,12 @@
 use super::ProcessResult;
-use crate::{send_to_vllm, Data, PromptExchange};
-
+use super::{Data, PromptExchange};
+// TODO: import send_to_vllm
 use super::{NewStateMachine, StateMachine};
+use crate::server::{send_to_vllm, VLLMConnWithState, VLLMTokenWithData};
 
-use super::prompt_template::{self, PromptTemplate, MapTemplate, MapParams, ReduceTemplate, ReduceParams};
-
+use super::prompt_template::{
+    self, MapParams, MapTemplate, PromptTemplate, ReduceParams, ReduceTemplate,
+};
 
 #[derive(Clone)]
 enum State {
@@ -35,7 +37,12 @@ impl NewStateMachine for MapReduceStateMachine {
 }
 
 impl StateMachine for MapReduceStateMachine {
-    fn step(&mut self, mut data: Data) -> Result<ProcessResult, Box<dyn std::error::Error>> {
+    fn step(
+        &mut self,
+        mut data: Data,
+        mut vllm_connection_pool: &mut Vec<Option<VLLMConnWithState>>,
+        mut vllm_token_with_data_vec: &mut Vec<Option<VLLMTokenWithData>>,
+    ) -> Result<ProcessResult, Box<dyn std::error::Error>> {
         // DONE: drive using states
         // NOTE: Removed infinite loop because it's unnecessary
         match self.state {
@@ -76,7 +83,12 @@ impl StateMachine for MapReduceStateMachine {
                                 prompted_string: map_template.fill(&map_params),
                                 llm_response: None,
                             });
-                            send_to_vllm(data_to_send);
+                            send_to_vllm(
+                                data_to_send,
+                                &mut vllm_connection_pool,
+                                &mut vllm_token_with_data_vec,
+                            );
+
                             self.chunk_num += 1; // increment
                         }
                     }
@@ -124,16 +136,33 @@ impl StateMachine for MapReduceStateMachine {
                                         */
 
                                         /* [x]: parse params into Reduce Template */
-                                        let reduce_template: ReduceTemplate = prompt_template::ReduceTemplate;
+                                        let reduce_template: ReduceTemplate =
+                                            prompt_template::ReduceTemplate;
                                         let reduce_params = ReduceParams {
-                                            reduce_instruction: self.reduce_instruction.clone().unwrap(),
+                                            reduce_instruction: self
+                                                .reduce_instruction
+                                                .clone()
+                                                .unwrap(),
                                             map_result: reduced_result,
-                                            task_instruction: data.prompt_keys.task_instruction.clone().unwrap(),
-                                            user_query: data.prompt_keys.user_query.clone().unwrap(),
+                                            task_instruction: data
+                                                .prompt_keys
+                                                .task_instruction
+                                                .clone()
+                                                .unwrap(),
+                                            user_query: data
+                                                .prompt_keys
+                                                .user_query
+                                                .clone()
+                                                .unwrap(),
                                         };
-                                        prompt_exchange.prompted_string = reduce_template.fill(&reduce_params);
+                                        prompt_exchange.prompted_string =
+                                            reduce_template.fill(&reduce_params);
 
-                                        send_to_vllm(data);
+                                        send_to_vllm(
+                                            data,
+                                            &mut vllm_connection_pool,
+                                            &mut vllm_token_with_data_vec,
+                                        );
                                         self.state = State::Done;
                                         return Ok(ProcessResult::Complete); // NOTE: returning Complete tells IO the next response is for client.
                                     } else {
